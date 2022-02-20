@@ -1,0 +1,218 @@
+from xml.etree.ElementPath import xpath_tokenizer
+import pygame
+import math
+import sympy
+import mpmath
+from mpmath import *
+pygame.init()
+#All Functions
+#Makes texts object to display on screen
+def makeTextObject(str, x , y):
+    text = font.render(str, True, (0,0,128), (0,89,76) )
+    textRect = text.get_rect()
+    textRect.center = (x//2, y//2)
+    return text, textRect
+
+#Makes an image an object and than a rectangle for collision
+def makeObjectandrec(str, x, y ):
+    img = pygame.image.load(str)
+    img = pygame.transform.scale(img, (x,y))
+    imgMask = pygame.mask.from_surface(img)
+    return img, imgMask
+
+#Definingg the track
+def track():
+    screen.blit(trackImage, (0,0))
+
+#Defining player and where they are 
+def player(x, y):
+    screen.blit(rotatedImage, (x, y))
+def goal():
+    screen.blit(goalImage, (700,750))
+
+#Rotates the player
+def rotateGoal(goalImage):
+    loc = goalImage.get_rect().center
+    rotSprite = pygame.transform.rotate(goalImage, 90)
+    rotSprite.get_rect().center = loc
+def rotate(playerImage, angle):
+    loc = playerImage.get_rect().center
+    rotSprite = pygame.transform.rotate(playerImage, angle)
+    rotSprite.get_rect().center = loc
+
+    return rotSprite
+
+#Detects Collision between two masks
+def collision(playerImageMask, mask, j, k, x=0, y =0):
+    offset = (int(j- x ), int(k - y))
+    poi = mask.overlap(playerImageMask, offset)
+    return poi
+
+#Adjust the speed value depending on angle
+def adjustXY(speed1, agnle):
+    h = cos(radians(angle))
+    h = chop(h)
+    j = sin(radians(angle))
+    j = chop(j)
+    x = float(speed1) * -float(h)
+    y = float(speed1) * float(j) 
+    return x , y
+def scoreBoard():
+    s = open("Scores.txt", "r")
+    q1, q1r = makeTextObject(s.readline(), 1000, 1050)
+    q2, q2r = makeTextObject(s.readline(), 1000, 1100)
+    q3, q3r = makeTextObject(s.readline(), 1000, 1150)
+    q4, q4r = makeTextObject(s.readline(), 1000, 1200)
+    q5, q5r = makeTextObject(s.readline(), 1000, 1250)
+    s.close()
+    return q1, q1r, q2, q2r, q3, q3r, q4, q4r, q5, q5r
+
+#Making Window
+screen = pygame.display.set_mode(size = (960, 960))
+pygame.display.set_caption("Race Game")
+displayWidth, displayHeight = screen.get_size()
+#Adding my variables
+inputRact = pygame.Rect(200,200,140,32)
+userInput = ""
+x = 43
+y = 563
+speed1 = 0
+speedChange = 0
+maxSpeed = 4
+answer =""
+angle = 90
+angleChange = 0
+#Calling object and retangle function to create one for player and track
+trackImage, trackImageMask  = makeObjectandrec("Track.png", 1800, 1400)
+playerImage, playerImageMask = makeObjectandrec("Player.png", 20, 10)
+goalImage, goalImageMask = makeObjectandrec("Goal.png", 10, 100)
+#Adding the font
+font = pygame.font.Font("TNR.ttf", 20)
+#Calling my text function for start screen, game over screen, and when you get goal
+text, textRect = makeTextObject("Use the arrow keys to move. To start press any button", 500, 500)
+gameover, goRect = makeTextObject("Gameover press any button to quit", 500, 500)
+goalGot, goalGotRect = makeTextObject("You hit the goal, enter your name and hit enter to quit" , 1000, 500)
+#more Variables
+startMan = False
+gameRunning = True
+ending = False
+
+#Commands while game is running
+while gameRunning:
+    #Display start screen
+    if startMan == False:
+        screen.fill((0,89,76))
+        screen.blit(text, textRect)
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                startMan = True
+            if event.type == pygame.QUIT:
+                gameRunning = False
+    #Make the clock or score
+    elif startMan == True:
+        screen.fill((0,128,0))
+        timeBetween = str(pygame.time.get_ticks())
+        clock, clockRec = makeTextObject(timeBetween, 50,50)
+        screen.blit(clock, clockRec)
+        #detecting what happens when keys are pressed
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                gameRunning = False
+            #When the keys is down
+            if event.type == pygame.KEYDOWN:
+                #If the key is the up or down it changes the speed and if it is right or left if changes angle
+                if event.key == pygame.K_DOWN:
+                    speedChange = 0.5 
+                if event.key == pygame.K_UP:
+                    speedChange = -0.5 
+                if event.key == pygame.K_RIGHT:
+                   angleChange = -0.2
+                if event.key == pygame.K_LEFT:
+                    angleChange = 0.2
+            #When the key is lifted 
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                    speedChange = 0
+                if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
+                    angleChange = 0
+        #Adding Acceleration
+        speed1 += speedChange
+        track()
+        goal()
+        if abs(speed1) >= maxSpeed:
+            speed1 = speed1/abs(speed1) * maxSpeed
+        if  speedChange == 0:
+            speed1 = speed1 * 0.92
+        #adding the rotation
+        rotatedImage = rotate(playerImage, angle)
+        if angleChange < 0:
+            angle = angle - 4
+        elif angleChange > 0:
+            angle = angle + 4
+        #Calling adjustXY to adjust the speed for the angle
+        xs, ys = adjustXY(speed1, angle)
+        x = x  + xs
+        y = y  +  ys
+        player(x,y)
+        #Calling collision function for player and track and what to display a
+        if collision(playerImageMask, trackImageMask, x ,y) != None:
+            ending = True
+            while ending == True:
+                screen.fill((0,89,76))
+                screen.blit(gameover, goRect)
+                for event in pygame.event.get():
+                    if event.type == pygame.KEYDOWN:
+                        pygame.display.quit()
+                pygame.display.update()
+        else:
+            player(x,y)
+        #Creating rectangle to detect goal get
+        goalRec = goalImageMask.get_rect()
+        playerRec = playerImageMask.get_rect()
+        playerRec.x =x
+        playerRec.y =y
+        goalRec.x = 700
+        goalRec.y = 750
+        if goalRec.colliderect(playerRec):
+            goalYeah = True
+            done1 = False
+            while goalYeah == True:
+                f1 = open("Scores.txt" , "r")
+                q1, q1r, q2, q2r, q3, q3r, q4, q4r, q5, q5r = scoreBoard()
+                scoreboard, scoreboardrec = makeTextObject("SCOREBOARD",  1000,1000)
+                f1.close()
+                screen.fill((0,89,76))
+                screen.blit(scoreboard, scoreboardrec)
+                screen.blit(q1, q1r)
+                screen.blit(q2, q2r)
+                screen.blit(q3, q3r)
+                screen.blit(q4, q4r)
+                screen.blit(q5, q5r)
+
+                screen.blit(goalGot, goalGotRect)
+                f = open("Scores.txt", "a")
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.display.quit()
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            done1 = True
+                        if event.key == pygame.K_BACKSPACE:
+                            userInput = userInput[:-1]
+                        else:
+                            userInput += event.unicode
+                            
+                pygame.draw.rect(screen, (0,89,76), inputRact)
+                textSurface = font.render(userInput, True, (255,255,255))
+                screen.blit(textSurface, (inputRact.x+5, inputRact.y+5))
+                inputRact.w = max(100, textSurface.get_width()+10)        
+                if done1 == True:
+                    f.write(userInput[:-1] + " " + "has a score of" + " " + str(timeBetween) + "\n")
+                    f.close()
+                    pygame.display.quit()
+                pygame.display.update()
+        
+        
+       
+
+    pygame.display.update()
